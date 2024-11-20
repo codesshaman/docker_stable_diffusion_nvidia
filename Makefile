@@ -32,6 +32,7 @@ all:
 help: all
 
 build:
+	@bash scripts/build.sh
 	@printf "$(YELLOW)==== Building configuration ${name}... ====$(NO_COLOR)\n"
 	@docker-compose -f ./docker-compose.yml up -d --build
 

@@ -1,55 +1,39 @@
-x-base_service: &base_service
-    ports:
-      - "${WEBUI_PORT:-7860}:7860"
-    volumes:
-      - &v1 ./data:/data
-      - &v2 ./output:/output
-    stop_signal: SIGKILL
-    tty: true
-    deploy:
-      resources:
-        reservations:
-          devices:
-              - driver: nvidia
-                device_ids: ['0']
-                capabilities: [compute, utility]
-
-name: webui-docker
-
 services:
-  download:
-    build: ./services/download/
-    profiles: ["download"]
+  sdwu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stable-diffusion
     volumes:
-      - *v1
-
-  auto: &automatic
-    <<: *base_service
-    profiles: ["auto"]
-    build: ./services/AUTOMATIC1111
-    image: sd-auto:78
+      - ./stable-diffusion-webui:/stable-diffusion-webui:z
+      - venv:/home/diffustion/.local/lib/python3.9/site-packages:z
+    ports:
+      - "${SDWU_PORT}:7860"
+    restart: unless-stopped
     environment:
-      - CLI_ARGS=--allow-code --medvram --xformers --enable-insecure-extension-access --api
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${SDWU_PORT} || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    # networks:
+    #   network:
+    #     ipv4_address: $ADCM_HOST
 
-  auto-cpu:
-    <<: *automatic
-    profiles: ["auto-cpu"]
-    deploy: {}
-    environment:
-      - CLI_ARGS=--no-half --precision full --allow-code --enable-insecure-extension-access --api
+# networks:
+#   network:
+#     driver: bridge
+#     name: $NETW_NAME
+#     ipam:
+#       config:
+#         - subnet: $NETW_ADDR
+#           gateway: $NETW_GATE
 
-  comfy: &comfy
-    <<: *base_service
-    profiles: ["comfy"]
-    build: ./services/comfy/
-    image: sd-comfy:7
-    environment:
-      - CLI_ARGS=
-
-
-  comfy-cpu:
-    <<: *comfy
-    profiles: ["comfy-cpu"]
-    deploy: {}
-    environment:
-      - CLI_ARGS=--cpu
+volumes:
+  venv:
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/${USER}/.local/lib/python3.9/site-packages/
